@@ -4,7 +4,7 @@ version = "0.2.1"
 edition = "2021"
 description = "Open-source offline configurator for GravaStar keyboards and mice"
 license = "MIT"
-authors = ["Orbit contributors"]
+authors = ["TookieBW"]
 build = "build.rs"
 
 [dependencies]
