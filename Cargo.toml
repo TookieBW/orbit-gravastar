@@ -1,0 +1,35 @@
+[package]
+name = "orbit"
+version = "0.2.0"
+edition = "2021"
+description = "Open-source offline configurator for GravaStar keyboards and mice"
+license = "MIT"
+authors = ["Orbit contributors"]
+build = "build.rs"
+
+[dependencies]
+anyhow = "1"
+eframe = { version = "0.37", default-features = false, features = [
+    "accesskit",
+    "default_fonts",
+    "glow",
+    "persistence",
+    "wayland",
+    "x11",
+] }
+egui = "0.37"
+hidapi = "2.6"
+tray-icon = "0.26"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.56"
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = 3
+panic = "abort"

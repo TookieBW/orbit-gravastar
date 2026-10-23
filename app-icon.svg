@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151827"/>
+      <stop offset="1" stop-color="#06070b"/>
+    </linearGradient>
+    <linearGradient id="planet" x1="0.15" y1="0.1" x2="0.85" y2="0.9">
+      <stop offset="0" stop-color="#a596ff"/>
+      <stop offset="0.5" stop-color="#5b8cff"/>
+      <stop offset="1" stop-color="#2fd5f0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#5b8cff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#5b8cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="shade" cx="0.35" cy="0.3" r="0.75">
+      <stop offset="0.55" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.45"/>
+    </radialGradient>
+    <clipPath id="front">
+      <rect x="0" y="512" width="1024" height="512" transform="rotate(-24 512 512)"/>
+    </clipPath>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="url(#bg)"/>
+  <rect x="32.5" y="32.5" width="959" height="959" rx="219.5" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="3"/>
+  <circle cx="512" cy="512" r="330" fill="url(#glow)"/>
+  <!-- ring behind the planet -->
+  <ellipse cx="512" cy="512" rx="370" ry="118" fill="none" stroke="#fff" stroke-opacity="0.45" stroke-width="26" transform="rotate(-24 512 512)"/>
+  <circle cx="512" cy="512" r="210" fill="url(#planet)"/>
+  <circle cx="512" cy="512" r="210" fill="url(#shade)"/>
+  <!-- ring in front of the planet -->
+  <g clip-path="url(#front)">
+    <ellipse cx="512" cy="512" rx="370" ry="118" fill="none" stroke="#fff" stroke-opacity="0.95" stroke-width="26" transform="rotate(-24 512 512)"/>
+  </g>
+  <circle cx="790" cy="300" r="16" fill="#fff"/>
+  <circle cx="250" cy="760" r="9" fill="#fff" fill-opacity="0.7"/>
+</svg>
