@@ -27,7 +27,8 @@ pub fn height(devices: &[DeviceEntry]) -> f32 {
 
 pub fn show(ui: &mut Ui, s: &Strings, devices: &[DeviceEntry]) -> PopupAction {
     let full = ui.max_rect();
-    theme::paint_backdrop(ui.painter(), full, theme::WINDOW_RADIUS);
+    // Always opaque: the popup gets no system blur (see `chrome::native_setup`).
+    theme::paint_backdrop(ui.painter(), full, theme::WINDOW_RADIUS, false);
     ui.painter().rect_stroke(full, theme::WINDOW_RADIUS, Stroke::new(1.0, theme::ink(0.14)), StrokeKind::Inside);
     let mut action = PopupAction::None;
 

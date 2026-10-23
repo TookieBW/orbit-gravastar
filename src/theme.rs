@@ -398,7 +398,8 @@ pub const WINDOW_RADIUS: f32 = 12.0;
 
 /// The app backdrop: deep space with coloured nebula glows and a few stars,
 /// filling a rounded rect so it works as the window shape of a transparent window.
-pub fn paint_backdrop(painter: &Painter, rect: Rect, radius: f32) {
+/// `translucent` lets the system blur behind the window shine through a little.
+pub fn paint_backdrop(painter: &Painter, rect: Rect, radius: f32, translucent: bool) {
     let light = is_light();
     let (w, h) = (rect.width(), rect.height());
     // Nebula glows: centre, radii, colour and peak opacity; linear falloff to the ellipse edge.
@@ -410,7 +411,7 @@ pub fn paint_backdrop(painter: &Painter, rect: Rect, radius: f32) {
         (pos2(rect.center().x, rect.max.y + h * 0.2), vec2(w * 0.47, h * 0.37), ACCENT2, if light { 0.06 } else { 0.06 }),
     ];
     // Only slightly see-through, so the page stays calm and readable.
-    let opacity = if !is_glass() { 1.0 } else if light { 0.82 } else { 0.86 };
+    let opacity = if !translucent { 1.0 } else if light { 0.82 } else { 0.86 };
     let color_at = |p: Pos2| {
         let mut c = bg();
         for (center, r, glow, a) in glows {

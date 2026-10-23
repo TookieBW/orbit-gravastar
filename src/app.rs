@@ -97,7 +97,8 @@ impl OrbitApp {
         let theme_pref = cc.storage.and_then(|s| s.get_string("theme")).and_then(|c| ThemePref::from_code(&c)).unwrap_or(ThemePref::Dark);
         theme::set_light(theme_pref.is_light(&cc.egui_ctx));
         theme::install_style(&cc.egui_ctx);
-        let glass = cfg!(windows) && cc.storage.and_then(|s| s.get_string("glass")).is_none_or(|v| v == "1");
+        // Off unless switched on: the rounded window is the default look.
+        let glass = cfg!(windows) && cc.storage.and_then(|s| s.get_string("glass")).is_some_and(|v| v == "1");
         theme::set_glass(glass);
         crate::chrome::native_setup(glass);
         let worker = Worker::spawn(cc.egui_ctx.clone(), demo);
@@ -246,8 +247,7 @@ impl eframe::App for OrbitApp {
             self.active = devices.first().map(|d| d.id.clone());
         }
         let full = ui.max_rect();
-        let maximized = ui.input(|i| i.viewport().maximized.unwrap_or(false));
-        theme::paint_backdrop(ui.painter(), full, if maximized { 0.0 } else { theme::WINDOW_RADIUS });
+        theme::paint_backdrop(ui.painter(), full, crate::chrome::window_radius(ui), theme::is_glass());
         let sidebar = Rect::from_min_size(full.min, vec2(280.0, full.height()));
         let main = Rect::from_min_max(pos2(sidebar.max.x, full.min.y), full.max);
         ui.painter().vline(sidebar.max.x, full.y_range(), Stroke::new(1.0, line()));
@@ -602,7 +602,7 @@ pub fn brand_mark(p: &egui::Painter, rect: Rect) {
 /// Vertical page scroller whose bar ends above the window's rounded bottom corner.
 fn page_scroll_area(ui: &Ui, salt: impl egui::AsIdSalt) -> egui::ScrollArea {
     let area = ui.available_rect_before_wrap();
-    let bar = Rect::from_min_max(pos2(area.min.x, area.min.y + 6.0), pos2(area.max.x, area.max.y - theme::WINDOW_RADIUS - 6.0));
+    let bar = Rect::from_min_max(pos2(area.min.x, area.min.y + 6.0), pos2(area.max.x, area.max.y - crate::chrome::window_radius(ui) - 6.0));
     egui::ScrollArea::vertical().id_salt(salt).auto_shrink([false, false]).scroll_bar_rect(bar)
 }
 

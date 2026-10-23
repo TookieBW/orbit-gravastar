@@ -12,6 +12,17 @@ fn is_maximized(ui: &Ui) -> bool {
     ui.input(|i| i.viewport().maximized.unwrap_or(false))
 }
 
+/// Corner radius of the main window. Square while maximised, and with the glass
+/// effect: Windows 10 blurs the whole window rectangle, so rounded corners would
+/// show blurred squares behind them (see `native_setup`).
+pub fn window_radius(ui: &Ui) -> f32 {
+    if is_maximized(ui) || theme::is_glass() {
+        0.0
+    } else {
+        theme::WINDOW_RADIUS
+    }
+}
+
 /// Register before the page content so real widgets on top keep their clicks.
 pub fn caption_drag_area(ui: &mut Ui, full: Rect) {
     // Starts below the top resize edge so dragging and resizing don't compete.
@@ -128,14 +139,16 @@ pub fn border(ui: &Ui, full: Rect) {
         return;
     }
     let layer = egui::LayerId::new(egui::Order::Foreground, ui.scope_id().with("window-border"));
-    ui.ctx().layer_painter(layer).rect_stroke(full, theme::WINDOW_RADIUS, Stroke::new(1.0, theme::ink(0.12)), StrokeKind::Inside);
+    ui.ctx().layer_painter(layer).rect_stroke(full, window_radius(ui), Stroke::new(1.0, theme::ink(0.12)), StrokeKind::Inside);
 }
 
 /// Native touches for our frameless windows (Windows only):
 /// * removes the 1 px strip winit reserves above the window for the drop shadow,
 ///   which Windows paints as a grey line across the rounded corners while active;
-/// * `glass` puts the system blur behind the window and clips the window to its
-///   rounded shape, so the blur doesn't show in the transparent corners.
+/// * `glass` puts the system blur behind the main window. Windows 10 always blurs the
+///   whole window rectangle (neither a window region nor the DWM blur region clips it),
+///   so the main window is drawn with square corners while glass is on, and the
+///   rounded tray popup never gets the blur.
 ///
 /// Safe to call repeatedly: once windows exist, and again when `glass` changes.
 #[cfg(windows)]
@@ -150,9 +163,11 @@ pub fn native_setup(_glass: bool) {}
 
 #[cfg(windows)]
 mod native {
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 
     pub static GLASS: AtomicBool = AtomicBool::new(false);
+    /// The main window: the only winit window when `native_setup` first runs.
+    static MAIN: AtomicIsize = AtomicIsize::new(0);
 
     type Hwnd = isize;
     type SubclassProc = unsafe extern "system" fn(Hwnd, u32, usize, isize, usize, usize) -> isize;
@@ -178,13 +193,6 @@ mod native {
         fn GetClassNameW(hwnd: Hwnd, name: *mut u16, len: i32) -> i32;
         fn IsZoomed(hwnd: Hwnd) -> i32;
         fn SetWindowPos(hwnd: Hwnd, after: Hwnd, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
-        fn GetWindowRect(hwnd: Hwnd, rect: *mut [i32; 4]) -> i32;
-        fn GetDpiForWindow(hwnd: Hwnd) -> u32;
-        fn SetWindowRgn(hwnd: Hwnd, region: isize, redraw: i32) -> i32;
-    }
-    #[link(name = "gdi32")]
-    extern "system" {
-        fn CreateRoundRectRgn(left: i32, top: i32, right: i32, bottom: i32, width: i32, height: i32) -> isize;
     }
     #[link(name = "kernel32")]
     extern "system" {
@@ -199,7 +207,6 @@ mod native {
         fn DefSubclassProc(hwnd: Hwnd, msg: u32, wparam: usize, lparam: isize) -> isize;
     }
 
-    const WM_SIZE: u32 = 0x0005;
     const WM_NCCALCSIZE: u32 = 0x0083;
     // SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
     const REFRESH_FRAME: u32 = 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020;
@@ -210,29 +217,12 @@ mod native {
     const WINIT_CLASS: &str = "Window Class";
 
     unsafe extern "system" fn proc(hwnd: Hwnd, msg: u32, wparam: usize, lparam: isize, _: usize, _: usize) -> isize {
-        match msg {
-            // Client area = the whole window. Maximised windows keep winit's handling,
-            // which fits them to the monitor's work area.
-            WM_NCCALCSIZE if wparam != 0 && unsafe { IsZoomed(hwnd) } == 0 => return 0,
-            WM_SIZE => update_region(hwnd),
-            _ => {}
+        // Client area = the whole window. Maximised windows keep winit's handling,
+        // which fits them to the monitor's work area.
+        if msg == WM_NCCALCSIZE && wparam != 0 && unsafe { IsZoomed(hwnd) } == 0 {
+            return 0;
         }
         unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
-    }
-
-    /// Rounded window shape while the blur is on; maximised windows stay square.
-    fn update_region(hwnd: Hwnd) {
-        unsafe {
-            if !GLASS.load(Ordering::Relaxed) || IsZoomed(hwnd) != 0 {
-                SetWindowRgn(hwnd, 0, 1);
-                return;
-            }
-            let mut r = [0i32; 4];
-            GetWindowRect(hwnd, &mut r);
-            let d = (2.0 * crate::theme::WINDOW_RADIUS * GetDpiForWindow(hwnd) as f32 / 96.0).round() as i32;
-            // The system owns the region from here on.
-            SetWindowRgn(hwnd, CreateRoundRectRgn(0, 0, r[2] - r[0] + 1, r[3] - r[1] + 1, d, d), 1);
-        }
     }
 
     fn set_blur(hwnd: Hwnd, on: bool) {
@@ -262,9 +252,8 @@ mod native {
                 SetWindowPos(hwnd, 0, 0, 0, 0, 0, REFRESH_FRAME);
             }
         }
-        let glass = GLASS.load(Ordering::Relaxed);
-        set_blur(hwnd, glass);
-        update_region(hwnd);
+        let _ = MAIN.compare_exchange(0, hwnd, Ordering::Relaxed, Ordering::Relaxed);
+        set_blur(hwnd, GLASS.load(Ordering::Relaxed) && MAIN.load(Ordering::Relaxed) == hwnd);
         1
     }
 }
